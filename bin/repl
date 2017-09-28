@@ -1,0 +1,54 @@
+#!/usr/bin/env node
+
+let program = require('commander');
+const repl = require('repl');
+const zmq = require('../lib');
+
+
+function req(uri) {
+  const sock = zmq.socket('req');
+  sock.connect(uri);
+  console.log('Connected REQ socket at ' + uri);
+
+  let cb = null;
+
+  sock.on('message', function(message) {
+    cb(null, message.toString('utf8'));
+  });
+
+  repl.start({
+    prompt: '> ',
+    eval: (cmd, context, filename, callback) => {
+      cb = callback;
+      sock.send(cmd);
+    }
+  });
+}
+
+function sub(uri) {
+  const sock = zmq.socket('sub');
+  sock.connect(uri);
+  console.log('Connected SUB socket at ' + uri);
+  sock.subscribe('');
+
+  sock.on('message', function(message) {
+    console.log('\x1b[32m', message.toString('utf8'));
+  });
+}
+
+
+program
+  .version('0.0.1')
+  .option('-b, --bind', 'Bind socket to port');
+
+program
+  .command('req [uri]')
+  .description('REQ socket')
+  .action(req);
+
+program
+  .command('sub [uri]')
+  .description('SUB socket')
+  .action(sub);
+
+program.parse(process.argv);
